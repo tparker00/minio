@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"testing"
 )
@@ -108,6 +109,42 @@ func TestGuessIsBrowser(t *testing.T) {
 	r.Header.Set("User-Agent", "mc")
 	if guessIsBrowserReq(r) {
 		t.Fatal("Test shouldn't report as browser for a non browser request.")
+	}
+}
+
+func TestGuessIsHealthCheck(t *testing.T) {
+	testCases := []struct {
+		path           string
+		method         string
+		expectedResult bool
+	}{
+		{"/minio/health/live", http.MethodGet, true},
+		{"/minio/health/ready", http.MethodGet, true},
+		{"/minio/", http.MethodGet, false},
+		{"/minio/health/live", http.MethodConnect, false},
+		{"/minio/health/live", http.MethodDelete, false},
+		{"/minio/health/live", http.MethodHead, false},
+		{"/minio/health/live", http.MethodOptions, false},
+		{"/minio/health/live", http.MethodPatch, false},
+		{"/minio/health/live", http.MethodPost, false},
+		{"/minio/health/live", http.MethodPut, false},
+		{"/minio/health/live", http.MethodTrace, false},
+	}
+	if guessIsHealthCheckReq(nil) {
+		t.Fatal("Unexpected return for nil request")
+	}
+	r := &http.Request{
+		Header: http.Header{},
+		URL:    &url.URL{},
+	}
+	r.Header.Set("User-Agent", "curl/7.58.0")
+	for i, test := range testCases {
+		r.URL.Path = test.path
+		r.Method = test.method
+		gotResult := guessIsHealthCheckReq(r)
+		if gotResult != test.expectedResult {
+			t.Fatalf("test %d: expected %v got %v", i+1, test.expectedResult, gotResult)
+		}
 	}
 }
 
